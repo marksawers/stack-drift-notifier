@@ -78,6 +78,7 @@ Parameters:
       - rate(4 days)
       - rate(7 days)
       - rate(14 days)
+      - rate(28 days)
     Default: rate(1 day)
   Regions:
     Type: String
