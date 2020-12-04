@@ -5,7 +5,12 @@ import re
 class SNSLogHandler(logging.Handler):
     def __init__(self, topic, subject, profile=None):
         logging.Handler.__init__(self)
-        region = re.search('arn:[a-zA-Z0-9_-]+:\w+:(.+?):\d+:.+$', topic).group(1)
+        search = re.search('arn:[a-zA-Z0-9_-]+:\w+:(.+?):\d+:.+$', topic)
+        if search:
+            region = search.group(1)
+        else:
+            region = None
+            print(F'ERROR: sns topic id {topic} not expected. It should be an ARN!' )
         self.session = boto3.session.Session(profile_name=profile,region_name=region)
         self.sns_client = self.session.client('sns')
         self.topic = topic
@@ -16,8 +21,9 @@ class SNSLogHandler(logging.Handler):
 
 class SNSlogger(object):
     def __init__(self, sns_topic_id, sns_topic_subject, profile=None):
+        self.snsLogHandler = None
         self.sns_topic = sns_topic_id
-        self.sns_subject = sns_topic_subject
+        self.subject = sns_topic_subject
         self.profile = profile
         self._init_logging()
 
@@ -25,7 +31,7 @@ class SNSlogger(object):
         self.log = logging.getLogger('SNS_Logger')
 
         # Should set the level on the logger itself to DEBUG
-        # and let the handlers below do the filtering 
+        # and let the handlers below do the filtering
         self.log.setLevel(logging.DEBUG)
         # Setting console output to DEBUG for easier debugging
         ch = logging.StreamHandler()
@@ -38,9 +44,19 @@ class SNSlogger(object):
         self.log.addHandler(ch)
         self.log.addHandler(hdlr)
         if self.sns_topic and self.sns_subject:
-            sns = SNSLogHandler(self.sns_topic, self.sns_subject, self.profile)
+            self.snsLogHandler = SNSLogHandler(self.sns_topic, self.sns_subject, self.profile)
 
             # We only want critical messages bothering us via AWS SNS
-            sns.setLevel(logging.CRITICAL)
-            sns.setFormatter(formatter)
-            self.log.addHandler(sns)
+            self.snsLogHandler.setLevel(logging.CRITICAL)
+            self.snsLogHandler.setFormatter(formatter)
+            self.log.addHandler(self.snsLogHandler)
+
+    @property
+    def subject(self):
+        return self.sns_subject
+
+    @subject.setter
+    def subject(self, subject):
+        self.sns_subject = subject
+        if self.snsLogHandler:
+            self.snsLogHandler.subject = subject

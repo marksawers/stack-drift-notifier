@@ -67,16 +67,21 @@ aws cloudformation create-stack --template-body file://cloudformation/drift_dete
 Wait for the CloudFormation stack to complete. With the default configuration, drift detection will run daily.
 
 The template parameters are as follows:
-  * LambdaFunctionName: Name lambda function. Default: drift_detection
+  * LambdaFunctionName: Name lambda function. Default: `drift_detection`
+  * LambdaRoleName: Lambda execution role name. Default: `ServiceRole-StackDriftNotifierLambda`
+  * LambdaPolicyBaseName: Base name of lambda policies for lambda execution. Default: `ServicePolicy-StackDriftNotifierLambda`
   * LambdaS3Bucket: Name of S3 bucket containing lambda function zip. **REQUIRED**
-  * LambdaS3Key: S3 key path of lambda function zip. Default: master/lambda/drift_detection.zip
-  * Enabled: Enabled or Disable Drift Detector. Default: ENABLED
-  * LambdaTimeout: Timeout for the lambda in seconds. Default: 300
-  * SnsTopicName: SNS topic name. Default: Drift-Detector
+  * LambdaS3Key: S3 key path of lambda function zip. Default: `master/lambda/drift_detection.zip`
+  * Enabled: Enabled or Disable Drift Detector. Default: `ENABLED`
+  * LambdaTimeout: Timeout for the lambda in seconds. Default: `300`
+  * SnsTopicName: SNS topic name. Default: `Drift-Detector`
   * NotifyEmail: Email address to notify for detected drift. **REQUIRED**
-  * NotificationSubject: Subject of the Email notification. Default: CFN Drift Detector Report
-  * ScheduleExpression: CloudWatch Event Rule Schedule Expression. Default: rate(1 day)
-  * Regions: Comma-separated list of regions in scope. Default: 'ap-south-1,eu-west-3,eu-west-2,eu-west-1,ap-northeast-2,ap-northeast-1,sa-east-1,ca-central-1,ap-southeast-1,ap-southeast-2,eu-central-1,us-east-1,us-east-2,us-west-1,us-west-2'
-  * LastCheckThresholdSecs: Age allowed of the last drift detection for each stack in seconds. Default: 60
-  * ReportAggregate: True to report once for all stacks per region, False to report one per stack/region. In both cases, report only sent if there are drifts. Default: True
-  * ReportResources: None suppresses listing of each drifted stack's drifted resources. NameOnly lists all modified and deleted resources in a drifted stack. Detailed adds more information on each resource drift. Default: NameOnly
+  * NotificationSubject: Subject of the Email notification. It is possible to qualify this with account region. Use python style substitution syntax, e.g. `CloudFormation Drift Detector [%(account)s %(region)s]`. Default: `CFN Drift Detector Report`
+  * ScheduleExpression: CloudWatch Event Rule Schedule Expression. Default: `rate(1 day)`
+  * Regions: Comma-separated list of regions in scope. Default: `ap-south-1,eu-west-3,eu-west-2,eu-west-1,ap-northeast-2,ap-northeast-1,sa-east-1,ca-central-1,ap-southeast-1,ap-southeast-2,eu-central-1,us-east-1,us-east-2,us-west-1,us-west-2`
+  * LastCheckThresholdSecs: Age allowed of the last drift detection for each stack in seconds. Default: `60`
+  * ReportAggregate: `True` to report once for all stacks per region, `False` to report one per stack/region. In both cases, report only sent if there are drifts. Default: `True`
+  * ReportResources: `None` suppresses listing of each drifted stack's drifted resources. `NameOnly` lists all modified and deleted resources in a drifted stack. `Detailed` adds more information on each resource drift. Default: `NameOnly`
+  * ReportChannelScope: Sets the scope of reporting for each channel. `FullSnsNoS3` sends the full report, as configured in `ReportAggregate` and `ReportResources`, to the sns topic, and does not save to s3. `FullSnsFullS3` sends the full to sns and saves it as an s3 object (location configured by ReportS3Bucket and ReportS3Prefix). `SummarySnsFullS3` sends a summary via sns and saves the full report to s3. The summary form excludes dirfted resources. Default: `FullSnsNoS3`
+  * ReportS3Bucket: Optional bucket name to store drift reports
+  * ReportS3Prefix: Optional directory path to store drift reports, e.g. `reports/stack-drifts`

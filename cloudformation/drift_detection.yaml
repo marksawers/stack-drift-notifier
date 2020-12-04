@@ -10,8 +10,14 @@ Metadata:
           - ScheduleExpression
           - LastCheckThresholdSecs
           - Regions
+      - Label:
+          default: Report Settings
+        Parameters:
           - ReportAggregate
           - ReportResources
+          - ReportChannelScope
+          - ReportS3Bucket
+          - ReportS3Prefix
       - Label:
           default: Notification Settings
         Parameters:
@@ -22,6 +28,8 @@ Metadata:
           default: Lambda Settings
         Parameters:
           - LambdaFunctionName
+          - LambdaRoleName
+          - LambdaPolicyBaseName
           - LambdaTimeout
           - LambdaS3Bucket
           - LambdaS3Key
@@ -33,6 +41,14 @@ Parameters:
     Type: String
     Description: Name lambda function
     Default: drift_detection
+  LambdaRoleName:
+    Type: String
+    Description: Lambda execution role name
+    Default: ServiceRole-StackDriftNotifierLambda
+  LambdaPolicyBaseName:
+    Type: String
+    Description: Base name of lambda policies for lambda execution
+    Default: ServicePolicy-StackDriftNotifierLambda
   LambdaS3Bucket:
     Type: String
     Description: Name of S3 bucket containing lambda function zip
@@ -99,16 +115,30 @@ Parameters:
     Description: None suppresses listing of each drifted stack's drifted resources. NameOnly lists all modified and deleted resources in a drifted stack. Detailed adds more information on each resource drift.
     AllowedValues: [ None, NameOnly, Detailed ]
     Default: NameOnly
+  ReportChannelScope:
+    Type: String
+    Description: Sets the scope of reporting for each channel. FullSnsNoS3 sends the full report, as configured in ReportAggregate and ReportResources, to the sns topic, and does not save to s3. FullSnsFullS3 sends the full to sns and saves it as an s3 object (location configured by ReportS3Bucket and ReportS3Prefix). SummarySnsFullS3 sends a summary via sns and saves the full report to s3.
+    AllowedValues: [ FullSnsNoS3, FullSnsFullS3, SummarySnsFullS3 ]
+    Default: FullSnsNoS3
+  ReportS3Bucket:
+    Type: String
+    Description: Optional bucket name to store drift reports
+    Default: ""
+  ReportS3Prefix:
+    Type: String
+    Description: Optional directory path to store drift reports, e.g. reports/stack-drifts
+    Default: ""
 
 Conditions:
   PublicBucket: !Equals
     - !Ref 'LambdaS3Bucket'
     - "stack-drift-notifier"
+  UsingS3ForReports: !Not [ !Equals [ !Ref ReportChannelScope, "FullSnsNoS3" ] ]
 Resources:
   LambdaRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub ${LambdaFunctionName}-lambdarole
+      RoleName: !Ref LambdaRoleName
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -121,23 +151,45 @@ Resources:
             Sid: ''
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/ReadOnlyAccess
-  LambdaRolePolicy:
+  LambdaCoreResourcesPolicy:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: DetectDrift
+      PolicyName: !Sub ${LambdaPolicyBaseName}CoreResources
       Roles:
         - !Ref 'LambdaRole'
       PolicyDocument:
         Statement:
-          - Sid: DetectDrift
+          - Sid: CloudFormation
             Action:
               - cloudformation:*Drift*
+            Effect: Allow
+            Resource: '*'
+          - Sid: SNS
+            Action:
               - sns:Publish
+            Effect: Allow
+            Resource: !Ref SNSTopic
+          - Sid: Logs
+            Action:
               - logs:CreateLogGroup
               - logs:CreateLogStream
               - logs:PutLogEvents
             Effect: Allow
-            Resource: '*'
+            Resource: !GetAtt CloudWatchLambdaLogGroup.Arn
+  LambdaS3Policy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${LambdaPolicyBaseName}S3
+      Roles:
+        - !Ref 'LambdaRole'
+      PolicyDocument:
+        Statement:
+          - Sid: S3
+            Action:
+              - s3:PutObject
+            Effect: Allow
+            Resource: !Sub arn:${AWS::Partition}:s3:::${ReportS3Bucket}/${ReportS3Prefix}/*
+    Condition: UsingS3ForReports
   SNSTopic:
     Type: AWS::SNS::Topic
     Properties:
@@ -169,6 +221,9 @@ Resources:
           LAST_CHECK_THRESHOLD_SECS: !Ref LastCheckThresholdSecs
           REPORT_AGGREGATE: !Ref ReportAggregate
           REPORT_RESOURCES: !Ref ReportResources
+          REPORT_CHANNEL_SCOPE: !Ref ReportChannelScope
+          REPORT_S3_BUCKET: !Ref ReportS3Bucket
+          REPORT_S3_PREFIX: !Ref ReportS3Prefix
   CloudWatchLambdaLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
