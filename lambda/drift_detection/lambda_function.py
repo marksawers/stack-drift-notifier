@@ -204,10 +204,9 @@ class DriftDetector(object):
                         if self.report_resources == REPORT_RESOURCES_NONE:
                             full_aggregate_report['DRIFTED'].append(stack['StackName'])
                         else:  # REPORT_RESOURCES_DETAILED or REPORT_RESOURCES_NAMEONLY
-                            resource_drifts = self._describe_resource_drifts(stack['StackName'])
                             full_aggregate_report['DRIFTED'].append( {
                                     'StackName': stack['StackName'],
-                                    'ResourceDrifts': resource_drifts
+                                    'ResourceDrifts': self._describe_resource_drifts(stack['StackName'])
                                 })
                     else: # not self.report_aggregate
                         summary_stack_info = {
@@ -220,7 +219,7 @@ class DriftDetector(object):
                             full_stack_info = summary_stack_info
                         else: # DETAILED or NAMEONLY
                             full_stack_info = copy.deepcopy(summary_stack_info)
-                            full_stack_info['ResourceDrifts'] = resource_drifts
+                            full_stack_info['ResourceDrifts'] = self._describe_resource_drifts(stack['StackName'])
                         # Save to s3
                         if self.report_channel_scope != REPORT_CHANNEL_SCOPE_FULL_SNS_NO_S3:
                             report_s3_key = F'{report_s3_base_key}/{stack["StackName"]}-{self.start_time_str}.json'
@@ -232,8 +231,6 @@ class DriftDetector(object):
                             self.logger.log.critical(json.dumps(summary_stack_info, indent=2))
                         else: # FULL_SNS_NO_S3 or FULL_SNS_FULL_S3
                             self.logger.log.critical(json.dumps(full_stack_info, indent=2))
-
-                        print(F"Summary is now {summary_aggregate_report['DRIFTED']}")
                 else:   # IN_SYNC
                     if self.report_aggregate:
                         summary_aggregate_report["IN_SYNC"].append(stack['StackName'])

@@ -64,9 +64,9 @@ The basic invocation with all defaults looks like this:
 ```
 aws cloudformation create-stack --template-body file://cloudformation/drift_detection.yaml --stack-name drift-detection --parameters '[{"ParameterKey":"NotifyEmail","ParameterValue":"EmailAddressToNotify"},{"ParameterKey":"LambdaS3Bucket","ParameterValue":"drift_detector_{yourUniqueId}"}]' --capabilities CAPABILITY_NAMED_IAM (--profile optionalProfile)
 ```
-Wait for the CloudFormation stack to complete. With the default configuration, drift detection will run daily.
+Wait for the CloudFormation stack to complete. Confirm the topic subscription. With the default configuration, drift detection will run daily.
 
-The template parameters are as follows:
+The full set of template parameters are as follows:
   * LambdaFunctionName: Name lambda function. Default: `drift_detection`
   * LambdaRoleName: Lambda execution role name. Default: `ServiceRole-StackDriftNotifierLambda`
   * LambdaPolicyBaseName: Base name of lambda policies for lambda execution. Default: `ServicePolicy-StackDriftNotifierLambda`
@@ -82,6 +82,6 @@ The template parameters are as follows:
   * LastCheckThresholdSecs: Age allowed of the last drift detection for each stack in seconds. Default: `60`
   * ReportAggregate: `True` to report once for all stacks per region, `False` to report one per stack/region. In both cases, report only sent if there are drifts. Default: `True`
   * ReportResources: `None` suppresses listing of each drifted stack's drifted resources. `NameOnly` lists all modified and deleted resources in a drifted stack. `Detailed` adds more information on each resource drift. Default: `NameOnly`
-  * ReportChannelScope: Sets the scope of reporting for each channel. `FullSnsNoS3` sends the full report, as configured in `ReportAggregate` and `ReportResources`, to the sns topic, and does not save to s3. `FullSnsFullS3` sends the full to sns and saves it as an s3 object (location configured by ReportS3Bucket and ReportS3Prefix). `SummarySnsFullS3` sends a summary via sns and saves the full report to s3. The summary form excludes dirfted resources. Default: `FullSnsNoS3`
+  * ReportChannelScope: Sets the scope of reporting for each channel. `FullSnsNoS3` sends the full report, as configured in `ReportAggregate` and `ReportResources`, to the sns topic, and does not save to s3. `FullSnsFullS3` sends the full to sns and saves it as an s3 object (location configured by ReportS3Bucket and ReportS3Prefix). `SummarySnsFullS3` sends a summary via sns and saves the full report to s3. The summary form excludes drifted resources. Default: `FullSnsNoS3`
   * ReportS3Bucket: Optional bucket name to store drift reports
-  * ReportS3Prefix: Optional directory path to store drift reports, e.g. `reports/stack-drifts`
+  * ReportS3Prefix: Optional directory path to store drift reports, e.g. `reports/stack-drifts`. The reports are saved in the path form `s3://{ReportS3Bucket}/{ReportS3Prefix}/{AccountId}/{Region}/{Timestamp}.json` for aggregated or `{DriftedStackName}-{Timestamp}.json` for non-aggregated. (You do not need to create the path or dir structure.)
